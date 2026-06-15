@@ -1,0 +1,329 @@
+Perfecto. Vamos celda por celda, explicando absolutamente todo.
+
+---
+
+## CELDA 1 — Instalar librerías
+
+```python
+!pip install pandas matplotlib scikit-learn
+```
+
+**Explicación palabra por palabra:**
+
+- `!` → el signo de exclamación le dice a Jupyter que lo que sigue es un comando del sistema operativo, no código de Python
+- `pip` → es el programa que instala librerías en Python. Su nombre significa "Pip Installs Packages"
+- `install` → palabra que le dice a pip qué acción hacer: instalar
+- `pandas` → librería para manejar tablas de datos
+- `matplotlib` → librería para hacer gráficas
+- `scikit-learn` → librería que tiene los algoritmos de Machine Learning
+
+---
+
+## CELDA 2 — Importar librerías
+
+```python
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
+import numpy as np
+```
+
+**Explicación palabra por palabra:**
+
+- `import` → palabra reservada de Python que significa "traer al proyecto". Sin esto, Python no sabe que esas librerías existen aunque estén instaladas
+- `pandas` → el nombre de la librería que estamos trayendo
+- `as` → palabra reservada que significa "con el apodo de"
+- `pd` → el apodo que le ponemos a pandas para no escribir "pandas" cada vez. Es una convención mundial, todos usan `pd`
+- `matplotlib.pyplot` → dentro de matplotlib existe una sección llamada pyplot que tiene las funciones para graficar. El punto `.` significa "dentro de"
+- `plt` → apodo de matplotlib.pyplot. También es convención mundial
+- `from` → palabra reservada que significa "desde". Úsala cuando solo quieres traer UNA parte de una librería
+- `sklearn.linear_model` → dentro de scikit-learn, en la sección linear_model, están los modelos de regresión
+- `LinearRegression` → el nombre exacto del modelo que queremos traer
+- `numpy` → librería para hacer cálculos matemáticos con listas de números
+- `np` → apodo de numpy. También es convención mundial
+
+---
+
+## CELDA 3 — Cargar los archivos CSV
+
+```python
+paises = pd.read_csv("Principales_Paises_Flujo_Carga_Canal_Panama.csv")
+buques = pd.read_csv("Trafico_Buques_Segmento_Mercado_Canal_Panama.csv")
+
+print(paises.head())
+print(buques.head())
+```
+
+**Explicación palabra por palabra:**
+
+- `paises` → nombre de variable que inventamos nosotros. Aquí guardamos la tabla del primer archivo. Puede llamarse como quieras
+- `=` → operador de asignación. Significa "guarda lo que está a la derecha dentro de lo que está a la izquierda"
+- `pd` → el apodo de pandas que definimos antes
+- `.` → significa "usa la función que está a continuación"
+- `read_csv` → función de pandas que lee un archivo CSV y lo convierte en tabla. read = leer, csv = el tipo de archivo
+- `( )` → los paréntesis le dicen a Python que estamos llamando una función y dentro van los ingredientes que necesita
+- `"Principales_Paises..."` → el nombre del archivo entre comillas. Las comillas indican que es texto, no una variable
+- `buques` → otra variable, guardamos la segunda tabla aquí
+- `print` → función que muestra algo en pantalla
+- `paises.head()` → `.head()` es una función de pandas que muestra solo las primeras 5 filas de la tabla. Sin esto mostraría toda la tabla de golpe
+
+---
+
+## CELDA 4 — Limpiar los datos
+
+```python
+buques = buques[buques['Segmento de Mercado'] != 'Total'].copy()
+
+buques['% Diferencia Tránsitos'] = (buques['% Diferencia Tránsitos']
+                                     .str.replace('%','')
+                                     .str.strip()
+                                     .astype(float))
+
+buques['Toneladas Largas de Carga 2024'] = buques['Toneladas Largas de Carga 2024'].fillna(0)
+buques['Toneladas Largas de Carga 2025'] = buques['Toneladas Largas de Carga 2025'].fillna(0)
+paises['Costa a Costa'] = paises['Costa a Costa'].fillna(0)
+
+print("Datos listos")
+```
+
+**Explicación palabra por palabra:**
+
+- `buques[buques['Segmento de Mercado'] != 'Total']` → esto es un filtro. Leído en español: "de la tabla buques, dame solo las filas donde la columna Segmento de Mercado NO sea igual a Total"
+- `!=` → operador que significa "diferente de" o "no igual a"
+- `.copy()` → hace una copia de los datos filtrados. Sin esto Python a veces da advertencias de seguridad porque estarías modificando el original
+- `buques['% Diferencia Tránsitos']` → así se accede a una columna específica de la tabla. El nombre de la columna va entre corchetes y comillas
+- `=` → asignación. Lo que calculamos a la derecha lo guardamos de vuelta en la misma columna
+- `.str` → le dice a pandas que vamos a trabajar con la columna como si fuera texto. str viene de string que significa cadena de texto
+- `.replace('%','')` → reemplaza el símbolo `%` por nada `''`, es decir, lo borra. El primer valor es lo que buscas, el segundo es con qué lo reemplazas
+- `.strip()` → elimina espacios vacíos que puedan estar al inicio o al final del texto. Como un trim
+- `.astype(float)` → convierte el texto a número decimal. float es el tipo de dato para números con decimales en Python. Sin esto Python no puede hacer matemáticas
+- `.fillna(0)` → fill = rellenar, na = valores vacíos (NaN). Reemplaza todas las celdas vacías con el número 0
+
+---
+
+## CELDA 5 — Calcular el cambio entre años
+
+```python
+buques['Cambio'] = buques['Tránsitos 2025'] - buques['Tránsitos 2024']
+
+print(buques[['Segmento de Mercado','Tránsitos 2024','Tránsitos 2025','Cambio']].to_string())
+```
+
+**Explicación palabra por palabra:**
+
+- `buques['Cambio']` → creamos una columna nueva llamada Cambio dentro de la tabla buques. Si no existía, pandas la crea automáticamente
+- `buques['Tránsitos 2025'] - buques['Tránsitos 2024']` → resta columna por columna. Fila 1 de 2025 menos fila 1 de 2024, fila 2 de 2025 menos fila 2 de 2024, y así
+- `buques[['Segmento de Mercado', 'Tránsitos 2024', ...]]` → doble corchete `[[ ]]` significa que estamos seleccionando varias columnas al mismo tiempo. El corchete de afuera es el selector de la tabla, el de adentro es una lista de columnas
+- `.to_string()` → muestra la tabla completa sin cortar filas ni columnas. Sin esto pandas a veces oculta filas del medio con `...`
+
+---
+
+## CELDA 6 — Gráfica tendencia 2024 vs 2025
+
+```python
+plt.figure(figsize=(12, 5))
+
+x = range(len(buques))
+plt.bar([i - 0.2 for i in x], buques['Tránsitos 2024'], width=0.4, label='2024', color='steelblue')
+plt.bar([i + 0.2 for i in x], buques['Tránsitos 2025'], width=0.4, label='2025', color='seagreen')
+
+plt.xticks(x, buques['Segmento de Mercado'], rotation=45, ha='right')
+plt.ylabel('Número de tránsitos')
+plt.title('Tránsitos por tipo de barco — Canal de Panamá')
+plt.legend()
+plt.tight_layout()
+plt.savefig('tendencia_transitos.png')
+plt.show()
+```
+
+**Explicación palabra por palabra:**
+
+- `plt.figure()` → crea el lienzo en blanco donde se va a dibujar la gráfica
+- `figsize=(12, 5)` → tamaño del lienzo en pulgadas. 12 de ancho, 5 de alto
+- `x = range(len(buques))` → `len(buques)` cuenta cuántas filas tiene la tabla. `range()` crea una secuencia de números del 0 hasta ese número. Si hay 11 segmentos, x = [0,1,2,3,4,5,6,7,8,9,10]. Esto sirve para posicionar las barras
+- `plt.bar()` → función que dibuja barras
+- `[i - 0.2 for i in x]` → esto se llama list comprehension. Significa: "para cada número i en x, calcúlame i menos 0.2". Desplaza las barras de 2024 hacia la izquierda para que no se encimen con las de 2025
+- `width=0.4` → ancho de cada barra
+- `label='2024'` → el texto que aparece en la leyenda para identificar ese grupo de barras
+- `color='steelblue'` → color de las barras. steelblue es un azul acero. Puedes poner 'blue', 'red', '#FF0000', etc.
+- `plt.xticks()` → configura las etiquetas del eje X (horizontal)
+- `rotation=45` → rota el texto 45 grados para que no se encimen los nombres
+- `ha='right'` → ha significa horizontal alignment. right significa que el texto se alinea a la derecha del punto de rotación, para que quede bien centrado bajo su barra
+- `plt.ylabel()` → texto del eje Y (vertical)
+- `plt.title()` → título de la gráfica
+- `plt.legend()` → muestra el cuadrito con los colores y sus nombres (la leyenda)
+- `plt.tight_layout()` → ajusta automáticamente los márgenes para que nada se corte
+- `plt.savefig('tendencia_transitos.png')` → guarda la imagen como archivo PNG en la misma carpeta
+- `plt.show()` → muestra la gráfica en pantalla
+
+---
+
+## CELDA 7 — Gráfica quién subió y quién bajó
+
+```python
+colores = ['green' if c > 0 else 'red' for c in buques['Cambio']]
+
+plt.figure(figsize=(12, 5))
+plt.bar(buques['Segmento de Mercado'], buques['% Diferencia Tránsitos'], color=colores)
+plt.axhline(y=0, color='black', linewidth=1)
+plt.xticks(rotation=45, ha='right')
+plt.ylabel('Variación %')
+plt.title('¿Qué segmentos crecieron y cuáles bajaron?')
+plt.tight_layout()
+plt.savefig('variacion_tendencia.png')
+plt.show()
+```
+
+**Explicación palabra por palabra:**
+
+- `colores = ['green' if c > 0 else 'red' for c in buques['Cambio']]` → list comprehension con condición. Leído en español: "para cada valor c en la columna Cambio, ponme 'green' si c es mayor que 0, si no ponme 'red'". Crea una lista de colores, uno por cada barra
+- `if` → palabra reservada. Condición: si esto es verdad, haz lo primero
+- `else` → palabra reservada. Si la condición no se cumple, haz esto otro
+- `>` → operador mayor que
+- `plt.axhline(y=0)` → axhline dibuja una línea horizontal. y=0 significa que la línea va exactamente en el cero del eje Y. Sirve como referencia visual
+- `linewidth=1` → grosor de la línea en puntos
+
+
+ISAI
+---
+
+## CELDA 8 — Preparar datos para el modelo
+
+```python
+X = buques[['Tránsitos 2024']].values
+y = buques['Tránsitos 2025'].values
+
+print("X (pistas):", X.flatten())
+print("y (respuestas):", y)
+```
+
+**Explicación palabra por palabra:**
+
+- `X` → por convención en Machine Learning siempre se usa X mayúscula para las variables de entrada. Son las "pistas" que le damos al modelo
+- `buques[['Tránsitos 2024']]` → doble corchete porque queremos que quede como tabla (necesario para sklearn). Un solo corchete daría una lista simple
+- `.values` → convierte la tabla de pandas a un array de numpy (lista de números pura). Sklearn necesita este formato, no acepta tablas de pandas directamente
+- `y` → por convención siempre se usa y minúscula para la variable que queremos predecir. Es la "respuesta correcta"
+- `.flatten()` → convierte un array de doble fila `[[1],[2],[3]]` a una lista simple `[1,2,3]`. Solo para mostrarlo más bonito en pantalla
+
+---
+
+## CELDA 9 — Entrenar el modelo
+
+```python
+modelo = LinearRegression()
+modelo.fit(X, y)
+
+print("Modelo entrenado!")
+print(f"Coeficiente: {modelo.coef_[0]:.2f}")
+print(f"R²: {modelo.score(X, y):.4f}")
+```
+
+**Explicación palabra por palabra:**
+
+- `modelo` → variable donde guardamos el modelo. Puede llamarse como quieras
+- `LinearRegression()` → crea el modelo de regresión lineal. Los paréntesis vacíos significan que usamos la configuración por defecto
+- `modelo.fit(X, y)` → fit significa ajustar o entrenar. Le damos X (las pistas) e y (las respuestas) para que aprenda el patrón entre ellos
+- `modelo.coef_` → después de entrenar, aquí se guarda el coeficiente de la recta (la pendiente). El `[0]` toma el primer valor porque viene dentro de una lista
+- `:.2f` → formato de número. El `.2` significa 2 decimales, la `f` significa float (número decimal). Va dentro de las llaves `{}` de un f-string
+- `f"texto {variable}"` → f-string. La `f` antes de las comillas activa el modo donde puedes meter variables dentro del texto usando llaves `{}`
+- `modelo.score(X, y)` → calcula el R². Va de 0 a 1. Mientras más cerca de 1, mejor predice el modelo
+- `:.4f` → 4 decimales para ver el R² con más precisión
+
+---
+
+## CELDA 10 — Ver qué tan bien predijo
+
+```python
+predicciones_2025 = modelo.predict(X)
+
+print(f"{'Segmento':<25} {'Real':>10} {'Predicho':>10} {'Error':>8}")
+print("-" * 55)
+
+for i, seg in enumerate(buques['Segmento de Mercado']):
+    real  = int(y[i])
+    pred  = int(predicciones_2025[i])
+    error = real - pred
+    print(f"{seg:<25} {real:>10,} {pred:>10,} {error:>+8,}")
+```
+
+**Explicación palabra por palabra:**
+
+- `modelo.predict(X)` → predict significa predecir. Le damos los mismos X de entrenamiento para ver si las predicciones se parecen a los valores reales
+- `f"{'Segmento':<25}"` → dentro de un f-string, `:<25` significa que el texto ocupa 25 caracteres y se alinea a la izquierda. Sirve para que la tabla quede en columnas derechas
+- `:>10` → ocupa 10 caracteres alineado a la derecha
+- `"-" * 55` → el operador `*` con texto repite ese texto. Imprime 55 guiones seguidos para hacer una línea divisoria
+- `for` → palabra reservada que repite un bloque de código varias veces
+- `i, seg` → dos variables que reciben valores al mismo tiempo
+- `enumerate()` → función que recorre una lista y entrega dos cosas en cada vuelta: el número de posición `i` y el valor `seg`
+- `int()` → convierte un número decimal a entero. int viene de integer que significa número entero
+- `:>+8,` → `+` muestra el signo siempre (+ o -), la `,` agrega separador de miles
+
+---
+
+## CELDA 11 — Predecir tránsitos 2026
+
+```python
+X_2026 = buques[['Tránsitos 2025']].values
+predicciones_2026 = modelo.predict(X_2026)
+
+print(f"{'Segmento':<25} {'2024':>8} {'2025':>8} {'2026 est.':>10}")
+print("-" * 55)
+
+for i, seg in enumerate(buques['Segmento de Mercado']):
+    t24 = int(buques['Tránsitos 2024'].iloc[i])
+    t25 = int(buques['Tránsitos 2025'].iloc[i])
+    t26 = int(predicciones_2026[i])
+    print(f"{seg:<25} {t24:>8,} {t25:>8,} {t26:>10,}")
+
+print(f"\nTotal estimado 2026: {int(predicciones_2026.sum()):,} tránsitos")
+```
+
+**Explicación palabra por palabra:**
+
+- `X_2026` → nueva variable. Ahora las pistas son los tránsitos de 2025, para que el modelo prediga 2026
+- `.iloc[i]` → iloc significa integer location. Accede a una fila por su número de posición. `iloc[0]` es la primera fila, `iloc[1]` la segunda, etc.
+- `.sum()` → suma todos los valores de un array. Así obtenemos el total de todos los segmentos
+
+---
+
+## CELDA 12 — Gráfica final con la predicción
+
+```python
+plt.figure(figsize=(12, 5))
+
+x = range(len(buques))
+
+plt.bar([i - 0.25 for i in x], buques['Tránsitos 2024'],  width=0.25, label='2024',            color='steelblue')
+plt.bar([i         for i in x], buques['Tránsitos 2025'],  width=0.25, label='2025',            color='seagreen')
+plt.bar([i + 0.25 for i in x], predicciones_2026,          width=0.25, label='2026 predicción', color='orange')
+
+plt.xticks(x, buques['Segmento de Mercado'], rotation=45, ha='right')
+plt.ylabel('Número de tránsitos')
+plt.title('Evolución y predicción de tránsitos — Canal de Panamá')
+plt.legend()
+plt.tight_layout()
+plt.savefig('prediccion_2026.png')
+plt.show()
+```
+
+**Explicación palabra por palabra:**
+
+- `[i - 0.25 for i in x]` → desplaza las barras de 2024 a la izquierda 0.25 unidades
+- `[i for i in x]` → las barras de 2025 quedan en el centro sin desplazamiento
+- `[i + 0.25 for i in x]` → desplaza las barras de 2026 a la derecha 0.25 unidades
+- Todo lo demás es igual a las gráficas anteriores
+
+---
+
+**Resumen de palabras reservadas usadas:**
+| Palabra | Significado |
+|---|---|
+| `import` | traer una librería |
+| `as` | ponerle apodo |
+| `from` | desde qué librería traer |
+| `for` | repetir un bloque de código |
+| `in` | dentro de (para recorrer listas) |
+| `if` | si esta condición es verdad |
+| `else` | si no se cumple el if |
+| `int` | convertir a número entero |
+| `print` | mostrar en pantalla |
