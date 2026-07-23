@@ -1,0 +1,5 @@
+Regresión Lineal	Predicción de ingresos totales
+Árbol de Decisión	Predicción de ingresos totales
+Random Forest	Predicción de ingresos totales
+KNN Regressor	Predicción de ingresos totales
+SVR (Support Vector Regression)	Predicción de ingresos totales    
