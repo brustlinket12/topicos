@@ -1,0 +1,264 @@
+EXPLICACIÓN TÉCNICA CODE-BY-CODE — PIPELINE CANAL DE PANAMÁ
+==============================================================
+
+---
+CELDA 1 — Instalación de dependencias
+--------------------------------------
+
+  !pip install pandas matplotlib scikit-learn
+
+Comando shell que instala tres librerías Python:
+  - pandas: manipulación de datos tabulares (DataFrame, Series).
+  - matplotlib: generación de gráficos estáticos (pyplot).
+  - scikit-learn: modelos de ML supervisado y no supervisado.
+
+El prefijo ! delega la ejecución al shell del sistema dentro del kernel
+de Jupyter, equivalente a invocar pip desde la terminal.
+
+---
+CELDA 2 — Importaciones
+-----------------------
+
+  import pandas as pd
+  import matplotlib.pyplot as plt
+  from sklearn.linear_model import LinearRegression
+  import numpy as np
+
+- pd: alias canónico de pandas, evita colisiones de namespace.
+- plt: alias estándar de matplotlib.pyplot, módulo con API estado-estilo.
+- from sklearn.linear_model import LinearRegression: importa únicamente
+  la clase LinearRegression del submódulo linear_model, minimizando
+  la carga del namespace global.
+- numpy: ndarray, álgebra lineal vectorizada y funciones matemáticas
+  (usado indirectamente por sklearn y matplotlib).
+
+---
+CELDA 3 — Carga de datos CSV
+-----------------------------
+
+  paises = pd.read_csv("Principales_Paises_Flujo_Carga_Canal_Panama.csv")
+  buques = pd.read_csv("Trafico_Buques_Segmento_Mercado_Canal_Panama.csv")
+
+  print("Archivo 1 - Países:")
+  print(paises.head())
+  print("\nArchivo 2 - Buques:")
+  print(buques.head())
+
+- pd.read_csv(): parser CSV con detección automática de tipos, cabeceras
+  y delimitadores. Retorna un DataFrame.
+- paises / buques: DataFrames con columnas en español con acentos.
+- .head(n=5): inspección de las primeras 5 filas; útil para validar
+  esquema y contenido antes del procesamiento.
+
+---
+CELDA 4 — Limpieza y transformación
+------------------------------------
+
+  buques = buques[buques['Segmento de Mercado'] != 'Total'].copy()
+
+  buques['% Diferencia Tránsitos'] = (buques['% Diferencia Tránsitos']
+                                       .str.replace('%','')
+                                       .str.strip()
+                                       .astype(float))
+
+  buques['Toneladas Largas de Carga 2024'] = buques['Toneladas Largas de Carga 2024'].fillna(0)
+  buques['Toneladas Largas de Carga 2025'] = buques['Toneladas Largas de Carga 2025'].fillna(0)
+  paises['Costa a Costa'] = paises['Costa a Costa'].fillna(0)
+
+Línea 1 — Filtrado booleano:
+  - buques['Segmento de Mercado'] != 'Total' genera una máscara booleana
+    (Serie de True/False).
+  - El indexado booleano [mascara] selecciona solo filas donde la máscara
+    es True.
+  - .copy() evita un SettingWithCopyWarning al crear un DataFrame
+    independiente (copia profunda), desvinculado de la vista del slice.
+
+Líneas 2-5 — Pipeline de string a float:
+  - .str: accesor de pandas para métodos vectorizados de cadenas.
+  - .replace('%', ''): regex literal, elimina el carácter %.
+  - .strip(): elimina whitespace leading/trailing.
+  - .astype(float): parsea la cadena limpia a tipo numérico float64.
+  La operación se encadena (method chaining) para legibilidad y rendimiento.
+
+Líneas 6-8 — Imputación de nulos:
+  - .fillna(0): reemplaza valores NaN con 0. Se aplica selectivamente
+    a columnas numéricas con ausencias conocidas (Costa a Costa en paises,
+    Toneladas Largas en buques).
+
+---
+CELDA 5 — Ingeniería de características
+----------------------------------------
+
+  buques['Cambio'] = buques['Tránsitos 2025'] - buques['Tránsitos 2024']
+
+  print("Tendencia por segmento:")
+  print(buques[['Segmento de Mercado','Tránsitos 2024','Tránsitos 2025','Cambio','% Diferencia Tránsitos']].to_string())
+
+- buques['Cambio']: nueva columna derivada. La resta opera elemento a
+  elemento sobre las Series, aprovechando la alineación por índice de pandas.
+- [[col1, col2, ...]]: doble indexación (lista de columnas) retorna un
+  sub-DataFrame con las columnas seleccionadas.
+- .to_string(): formatea el DataFrame como string plano sin truncamiento
+  de filas, útil para consola.
+
+---
+CELDA 6 — Visualización 1: barras agrupadas 2024 vs 2025
+---------------------------------------------------------
+
+  plt.figure(figsize=(12, 5))
+  x = range(len(buques))
+  plt.bar([i - 0.2 for i in x], buques['Tránsitos 2024'], width=0.4, label='2024', color='steelblue')
+  plt.bar([i + 0.2 for i in x], buques['Tránsitos 2025'], width=0.4, label='2025', color='seagreen')
+  plt.xticks(x, buques['Segmento de Mercado'], rotation=45, ha='right')
+  plt.ylabel('Número de tránsitos')
+  plt.title('Tránsitos por tipo de barco — Canal de Panamá')
+  plt.legend()
+  plt.tight_layout()
+  plt.savefig('tendencia_transitos.png')
+  plt.show()
+
+- plt.figure(figsize=(12,5)): crea una figura de 12x5 pulgadas (resolución
+  100 dpi por defecto → 1200x500 px).
+- range(len(buques)): genera índices enteros [0..n-1] para posicionar
+  las barras en el eje X.
+- plt.bar(): dos llamadas desplazadas ±0.2 unidades del centro para
+  evitar solapamiento total. width=0.4 deja 0.1 de separación entre pares.
+- plt.xticks(..., rotation=45, ha='right'): rota las etiquetas 45°
+  y alinea a la derecha para evitar cortes con nombres largos.
+- plt.tight_layout(): ajusta automáticamente los márgenes/padding
+  del subplot para que nada se recorte al guardar.
+- plt.savefig(): exporta a PNG en el directorio de trabajo (resolución
+  por defecto: 100 dpi, formato raster).
+- plt.show(): renderiza en el output del notebook (buffer → backend
+  inline de IPython).
+
+---
+CELDA 7 — Visualización 2: variación porcentual con código de color
+--------------------------------------------------------------------
+
+  colores = ['green' if c > 0 else 'red' for c in buques['Cambio']]
+
+  plt.figure(figsize=(12, 5))
+  plt.bar(buques['Segmento de Mercado'], buques['% Diferencia Tránsitos'], color=colores)
+  plt.axhline(y=0, color='black', linewidth=1)
+  plt.xticks(rotation=45, ha='right')
+  plt.ylabel('Variación %')
+  plt.title('¿Qué segmentos crecieron (verde) y cuáles bajaron (rojo)?')
+  plt.tight_layout()
+  plt.savefig('variacion_tendencia.png')
+  plt.show()
+
+- List comprehension condicional: genera una lista de colores paralela
+  a cada fila. 'green' si Cambio > 0, 'red' en caso contrario.
+- plt.axhline(y=0): dibuja una línea horizontal en y=0 sobre los ejes
+  actuales, útil como referencia visual de crecimiento/decrecimiento.
+- El mapeo color=colores asigna cada color a su barra correspondiente
+  por posición (no por nombre).
+
+---
+CELDA 8 — Preparación de matrices para ML
+------------------------------------------
+
+  X = buques[['Tránsitos 2024']].values
+  y = buques['Tránsitos 2025'].values
+
+- X (features): se selecciona como DataFrame de una columna (doble
+  corchete [[...]]) para mantener la dimensionalidad 2D (n_samples, 1).
+  .values lo convierte a ndarray de numpy.
+- y (target): se selecciona como Serie (un corchete), dando un array
+  1D. sklearn espera y como array 1D para regresión.
+
+---
+CELDA 9 — Entrenamiento del modelo
+-----------------------------------
+
+  modelo = LinearRegression()
+  modelo.fit(X, y)
+
+  print("Modelo entrenado!")
+  print(f"Por cada tránsito en 2024, el modelo espera {modelo.coef_[0]:.2f} tránsitos en 2025")
+
+- LinearRegression(): instancia del modelo con parámetros por defecto
+  (fit_intercept=True, normalize=False, copy_X=True).
+- .fit(X, y): ejecuta el algoritmo de mínimos cuadrados ordinarios (OLS)
+  resolviendo la ecuación normal o usando descomposición SVD. Ajusta
+  los parámetros θ (coef_ e intercept_) para minimizar la suma de
+  residuos cuadrados (RSS).
+- modelo.coef_: array de coeficientes (pendientes). coef_[0] extrae
+  el escalar para la única variable predictora.
+- f-string con :.2f: formatea el float con 2 decimales.
+
+---
+CELDA 10 — Evaluación: residuos tabla comparativa
+--------------------------------------------------
+
+  predicciones_2025 = modelo.predict(X)
+
+  print("Comparación Real vs Predicho:")
+  print(f"{'Segmento':<25} {'Real 2025':>10} {'Predicho':>10} {'Error':>8}")
+  print("-" * 55)
+  for i, seg in enumerate(buques['Segmento de Mercado']):
+      real  = int(y[i])
+      pred  = int(predicciones_2025[i])
+      error = real - pred
+      print(f"{seg:<25} {real:>10,} {pred:>10,} {error:>+8,}")
+
+- modelo.predict(X): aplica la función lineal aprendida y = X·θ + ε
+  sobre los datos de entrada, retornando predicciones continuas.
+- int(): truncamiento a entero (no redondeo). Adecuado porque tránsitos
+  son conteos discretos.
+- error = real - pred: residuo (error de predicción). Positivo =
+  subestimación; negativo = sobrestimación.
+- Formato :>+8,: alineación derecha (8 chars), signo siempre visible,
+  separador de miles.
+
+---
+CELDA 11 — Predicción forward 2026
+-----------------------------------
+
+  X_2026 = buques[['Tránsitos 2025']].values
+  predicciones_2026 = modelo.predict(X_2026)
+
+  print("Predicción de tránsitos para 2026:")
+  print(f"{'Segmento':<25} {'2024':>8} {'2025':>8} {'2026 est.':>10}")
+  print("-" * 55)
+  for i, seg in enumerate(buques['Segmento de Mercado']):
+      t24 = int(buques['Tránsitos 2024'].iloc[i])
+      t25 = int(buques['Tránsitos 2025'].iloc[i])
+      t26 = int(predicciones_2026[i])
+      print(f"{seg:<25} {t24:>8,} {t25:>8,} {t26:>10,}")
+  print(f"\nTotal estimado 2026: {int(predicciones_2026.sum()):,} tránsitos")
+
+- X_2026: usa Tránsitos 2025 como predictor para 2026, asumiendo que
+  la relación lineal 2024→2025 se mantiene para 2025→2026 (extrapolación).
+- .iloc[i]: indexación posicional entera (no por etiqueta). Accede
+  a la i-ésima fila.
+- predicciones_2026.sum(): suma vectorizada de todas las predicciones
+  individuales para obtener el total agregado.
+
+---
+CELDA 12 — Visualización 3: evolución con predicción
+-----------------------------------------------------
+
+  plt.figure(figsize=(12, 5))
+  x = range(len(buques))
+  plt.bar([i - 0.25 for i in x], buques['Tránsitos 2024'], width=0.25, label='2024', color='steelblue')
+  plt.bar([i        for i in x], buques['Tránsitos 2025'], width=0.25, label='2025', color='seagreen')
+  plt.bar([i + 0.25 for i in x], predicciones_2026,       width=0.25, label='2026 (predicción)', color='orange')
+  plt.xticks(x, buques['Segmento de Mercado'], rotation=45, ha='right')
+  plt.ylabel('Número de tránsitos')
+  plt.title('Evolución y predicción de tránsitos — Canal de Panamá')
+  plt.legend()
+  plt.tight_layout()
+  plt.savefig('prediccion_2026.png')
+  plt.show()
+
+- Tres barras por segmento: 2024 (-0.25), 2025 (centro), 2026 (+0.25).
+  width=0.25 con separación de 0.25 entre cada grupo.
+- La tercera serie (predicciones_2026) es un ndarray, no una columna
+  del DataFrame, pero plt.bar acepta cualquier iterable como altura.
+- Se genera el archivo prediccion_2026.png, cuarto y último PNG del
+  pipeline.
+
+==============================================================
+FIN DEL DOCUMENTO
