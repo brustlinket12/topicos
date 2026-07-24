@@ -1,0 +1,374 @@
+# Explicación técnica de `pipelin3.ipynb`
+
+## Objetivo general
+
+El notebook calcula diez indicadores clave de desempeño del Canal de Panamá.
+Utiliza dos archivos CSV:
+
+1. `A07607236202602121443442025_transporte_acp.csv`, que contiene información
+   mensual de 2020 a 2025.
+2. `P053342420251210083046Cuadro 34.csv`, que contiene datos anuales para
+   2020-2022 y trimestrales para 2023-2024.
+
+Cada KPI se presenta en una celda independiente y tiene una gráfica asociada.
+Los cálculos son descriptivos; no se utiliza machine learning ni se hacen
+predicciones.
+
+---
+
+## Celda 0 — Título
+
+Esta celda Markdown presenta el nombre y alcance del notebook. No ejecuta código.
+
+## Celda 1 — Importación de librerías
+
+```python
+import pandas as pd
+import matplotlib.pyplot as plt
+```
+
+- `pandas` se importa con el alias `pd` y se utiliza para leer, transformar,
+  agrupar y resumir los datos.
+- `matplotlib.pyplot` se importa con el alias `plt` y se utiliza para crear las
+  diez gráficas.
+
+---
+
+## Celdas 2 y 3 — Preparación del primer dataset
+
+### Lectura
+
+```python
+df = pd.read_csv("A07607236202602121443442025_transporte_acp.csv")
+```
+
+`read_csv` convierte el archivo en un `DataFrame`, es decir, una tabla de pandas.
+El archivo se busca en el mismo directorio desde el que se ejecuta el notebook.
+
+### Renombramiento
+
+```python
+df = df.rename(columns={
+    "Ingresos por Peaje Panamax": "Ingresos Panamax",
+    "Ingresos por Peaje NeoPanamax": "Ingresos NeoPanamax"
+})
+```
+
+Se acortan dos nombres de columnas para facilitar los cálculos posteriores. El
+renombramiento no modifica los valores.
+
+### Ingresos totales
+
+```python
+df["Ingresos Totales"] = df["Ingresos Panamax"] + df["Ingresos NeoPanamax"]
+```
+
+La suma se realiza fila por fila. Cada fila representa un mes:
+
+```text
+Ingresos Totales = Ingresos Panamax + Ingresos NeoPanamax
+```
+
+### Tránsitos totales
+
+```python
+df["Total Tránsitos"] = (
+    df["Transito de Naves Alto Calado Panamax"]
+    + df["Transito de Naves Pequeño Calado Panamax"]
+    + df["Transito de Naves NeoPanamax"]
+)
+```
+
+También se calcula fila por fila:
+
+```text
+Total Tránsitos =
+    Panamax de alto calado
+    + Panamax de pequeño calado
+    + NeoPanamax
+```
+
+`df.shape[0]` devuelve la cantidad de filas cargadas.
+
+---
+
+## Celdas 4 y 5 — Preparación del segundo dataset
+
+### Lectura con separador
+
+```python
+df2 = pd.read_csv(
+    "P053342420251210083046Cuadro 34.csv",
+    sep=";"
+)
+```
+
+El parámetro `sep=";"` es necesario porque este CSV utiliza punto y coma para
+separar las columnas.
+
+### Limpieza de encabezados
+
+```python
+df2.columns = df2.columns.str.strip()
+```
+
+`str.strip()` elimina espacios al principio o al final de los nombres de las
+columnas.
+
+### Renombramiento
+
+Los encabezados originales se reemplazan por nombres más cortos:
+
+- `ANo y trimestre` pasa a `Periodo`.
+- Los tránsitos de alto calado pasan a `Alto Calado`.
+- Los tránsitos de pequeño calado pasan a `Pequeño Calado`.
+- Los ingresos por peaje pasan a `Ingresos`.
+
+### Conversión a números
+
+```python
+for columna in ["Alto Calado", "Pequeño Calado", "Ingresos"]:
+    df2[columna] = (
+        df2[columna]
+        .astype(str)
+        .str.replace(",", "", regex=False)
+        .astype(int)
+    )
+```
+
+Los valores llegan como textos con separadores de miles, por ejemplo
+`"2,710,684,310"`. El proceso es:
+
+1. Convertir el valor a texto.
+2. Eliminar las comas.
+3. Convertir el resultado a entero.
+
+### Extracción del año
+
+```python
+df2["Año"] = df2["Periodo"].str.extract(r"(20\d{2})").astype(int)
+```
+
+La expresión regular `(20\d{2})` busca un año formado por `20` y dos dígitos
+adicionales. Funciona tanto para `"2020"` como para
+`"Primer trimestre de 2024"`.
+
+### Conversión de trimestres a años
+
+```python
+df2_anual = df2.groupby("Año")[columnas].sum()
+```
+
+`groupby("Año")` agrupa los registros del mismo año y `sum()` suma sus valores.
+De esta manera:
+
+- 2020-2022 conservan sus totales anuales porque tienen una fila por año.
+- Los cuatro trimestres de 2023 se convierten en un total anual.
+- Los cuatro trimestres de 2024 se convierten en un total anual.
+
+Esto evita comparar un año completo con un trimestre.
+
+---
+
+## Celdas 6 y 7 — KPI 1: ingresos totales acumulados
+
+```python
+kpi_1 = df["Ingresos Totales"].sum()
+```
+
+`sum()` agrega los ingresos de todos los meses entre 2020 y 2025.
+
+La gráfica contiene una sola barra. El valor se divide entre un millón para que
+el eje vertical se exprese en millones de balboas:
+
+```python
+kpi_1 / 1_000_000
+```
+
+---
+
+## Celdas 8 y 9 — KPI 2: tránsitos totales acumulados
+
+```python
+kpi_2 = df["Total Tránsitos"].sum()
+```
+
+Suma todos los tránsitos mensuales del período. La barra representa el total
+acumulado y el eje vertical muestra la cantidad de tránsitos.
+
+---
+
+## Celdas 10 y 11 — KPI 3: ingresos del último año
+
+```python
+ultimo_año = df["Año"].max()
+```
+
+`max()` identifica automáticamente el año más reciente.
+
+```python
+ingresos_por_año = df.groupby("Año")["Ingresos Totales"].sum()
+```
+
+Los ingresos mensuales se agrupan y suman por año.
+
+```python
+kpi_3 = ingresos_por_año.loc[ultimo_año]
+```
+
+`.loc` selecciona el ingreso correspondiente al último año.
+
+La gráfica muestra todos los años. El último se pinta de naranja y los demás de
+gris para destacar el KPI sin perder el contexto histórico.
+
+---
+
+## Celdas 12 y 13 — KPI 4: variación anual de ingresos
+
+```python
+variacion_ingresos = ingresos_por_año.pct_change() * 100
+```
+
+`pct_change()` aplica la fórmula:
+
+```text
+Variación % =
+    (Ingreso del año actual - Ingreso del año anterior)
+    / Ingreso del año anterior
+    × 100
+```
+
+El primer año queda vacío porque no tiene un año anterior. `dropna()` lo excluye
+de la gráfica.
+
+- Verde representa crecimiento.
+- Rojo representa reducción.
+- `axhline(0)` dibuja la línea de referencia del cero.
+
+---
+
+## Celdas 14 y 15 — KPI 5: variación anual de tránsitos
+
+Primero se suman los tránsitos por año:
+
+```python
+transitos_por_año = df.groupby("Año")["Total Tránsitos"].sum()
+```
+
+Después se utiliza `pct_change()` con la misma fórmula porcentual del KPI 4.
+La última variación es el KPI mostrado. La gráfica usa verde para aumentos y
+rojo para disminuciones.
+
+---
+
+## Celdas 16 y 17 — KPI 6: ingreso promedio por tránsito
+
+```python
+ingreso_por_transito = ingresos_por_año / transitos_por_año
+```
+
+La fórmula es:
+
+```text
+Ingreso promedio por tránsito =
+    Ingresos totales del año / Tránsitos totales del año
+```
+
+El indicador no representa el peaje exacto de cada nave; es un promedio general
+calculado con los totales disponibles.
+
+La gráfica de línea permite observar la evolución del promedio entre años.
+Cada marcador representa un año.
+
+---
+
+## Celdas 18 y 19 — KPI 7: participación NeoPanamax en ingresos
+
+```python
+kpi_7 = ingresos_neopanamax / kpi_1 * 100
+```
+
+La fórmula es:
+
+```text
+Participación NeoPanamax =
+    Ingresos NeoPanamax / Ingresos totales × 100
+```
+
+El gráfico circular compara los ingresos acumulados de Panamax y NeoPanamax.
+`autopct="%1.1f%%"` muestra el porcentaje con un decimal.
+
+---
+
+## Celdas 20 y 21 — KPI 8: mes con mayores ingresos
+
+```python
+fila_mayor_ingreso = df.loc[df["Ingresos Totales"].idxmax()]
+```
+
+- `idxmax()` devuelve el índice de la fila con el ingreso total más alto.
+- `.loc` recupera la fila completa.
+- Esto permite mostrar simultáneamente mes, año e ingreso.
+
+La gráfica presenta los 72 meses:
+
+- Las etiquetas combinan las tres primeras letras del mes con el año.
+- El mes máximo aparece en naranja.
+- Los demás meses aparecen en azul.
+- La rotación de 90 grados evita que las etiquetas se superpongan.
+
+---
+
+## Celdas 22 y 23 — KPI 9: ingresos de 2024 del segundo dataset
+
+```python
+kpi_9 = df2_anual.loc[2024, "Ingresos"]
+```
+
+El dato de 2024 es el resultado de sumar sus cuatro trimestres. La gráfica
+compara todos los años disponibles en el segundo dataset y resalta 2024 en
+naranja.
+
+---
+
+## Celdas 24 y 25 — KPI 10: participación de pequeño calado
+
+```python
+kpi_10 = pequeño_calado_2024 / total_transitos_2024 * 100
+```
+
+La fórmula es:
+
+```text
+Participación de pequeño calado =
+    Tránsitos de pequeño calado
+    / Total de tránsitos
+    × 100
+```
+
+El gráfico circular divide los tránsitos de 2024 entre alto y pequeño calado.
+Los porcentajes se calculan automáticamente a partir de los valores anuales.
+
+---
+
+## Funciones de Matplotlib utilizadas
+
+| Función | Propósito |
+|---|---|
+| `plt.figure(figsize=(...))` | Crea el espacio y define el tamaño de la gráfica |
+| `plt.bar(...)` | Crea una gráfica de barras |
+| `plt.plot(...)` | Crea una gráfica de línea |
+| `plt.pie(...)` | Crea una gráfica circular |
+| `plt.title(...)` | Añade el título |
+| `plt.ylabel(...)` | Añade la unidad del eje vertical |
+| `plt.xticks(...)` | Configura las etiquetas del eje horizontal |
+| `plt.axhline(...)` | Dibuja una línea horizontal de referencia |
+| `plt.tight_layout()` | Ajusta márgenes para evitar cortes |
+| `plt.show()` | Muestra la gráfica |
+
+## Limitaciones
+
+- Los KPIs son descriptivos y no predicen resultados futuros.
+- El ingreso promedio por tránsito no sustituye el cálculo individual de peajes.
+- El primer dataset llega hasta 2025, mientras que el segundo llega hasta 2024.
+- La calidad de los resultados depende de la exactitud de los CSV originales.
