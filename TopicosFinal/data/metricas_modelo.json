@@ -1,0 +1,108 @@
+{
+  "modelo_ganador_ingresos": "LinearRegression",
+  "modelo_ganador_transitos": "LinearRegression",
+  "metricas": {
+    "ingresos": {
+      "linear_regression": {
+        "rmse": 14774369.7014,
+        "r2": 0.6928,
+        "mape": 7.9,
+        "mae": 11639195.73
+      },
+      "random_forest": {
+        "rmse": 37667281.2128,
+        "r2": -0.9967,
+        "mape": 20.84,
+        "mae": 33789980.02
+      },
+      "ganador": "LinearRegression",
+      "feature_importance_top10": {
+        "transitos_lag1": 0.447252,
+        "transitos_ma3": 0.200841,
+        "transitos_ma12": 0.117826,
+        "transitos_lag12": 0.11303,
+        "anio": 0.082634,
+        "mes_num": 0.013337,
+        "trimestre": 0.004387,
+        "mes_9": 0.003707,
+        "mes_7": 0.003115,
+        "mes_2": 0.002932
+      }
+    },
+    "transitos": {
+      "linear_regression": {
+        "rmse": 32.5079,
+        "r2": 0.9771,
+        "mape": 6.74,
+        "mae": 25.14
+      },
+      "random_forest": {
+        "rmse": 36.2387,
+        "r2": 0.9716,
+        "mape": 6.61,
+        "mae": 27.21
+      },
+      "ganador": "LinearRegression"
+    }
+  },
+  "feature_importance": {
+    "ingresos_top10": {
+      "transitos_lag1": 0.447252,
+      "transitos_ma3": 0.200841,
+      "transitos_ma12": 0.117826,
+      "transitos_lag12": 0.11303,
+      "anio": 0.082634,
+      "mes_num": 0.013337,
+      "trimestre": 0.004387,
+      "mes_9": 0.003707,
+      "mes_7": 0.003115,
+      "mes_2": 0.002932
+    },
+    "transitos_top10": [
+      [
+        "transitos_ma3",
+        0.30192675460711893
+      ],
+      [
+        "transitos_lag1",
+        0.2783234389710762
+      ],
+      [
+        "transitos_ma12",
+        0.21620780434070316
+      ],
+      [
+        "transitos_lag12",
+        0.19699376169342506
+      ],
+      [
+        "mes_num",
+        0.0023908737721579517
+      ],
+      [
+        "mes_2",
+        0.0008188455807494934
+      ],
+      [
+        "mes_9",
+        0.0005160997950684661
+      ],
+      [
+        "anio",
+        0.0005010696336334909
+      ],
+      [
+        "trimestre",
+        0.0004495178113407514
+      ],
+      [
+        "mes_12",
+        0.0003819868051489406
+      ]
+    ]
+  },
+  "n_entrenamiento": 72,
+  "n_test": 48,
+  "split_strategy": "temporal 2020-01 a 2023-12 / 2024-01 a 2025-12",
+  "fecha_entrenamiento": "2026-07-23"
+}

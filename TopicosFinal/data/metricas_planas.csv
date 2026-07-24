@@ -1,0 +1,15 @@
+﻿metrica,valor
+modelo_ganador_ingresos,LinearRegression
+modelo_ganador_transitos,LinearRegression
+rmse_lr_ingresos,14774369.7014
+r2_lr_ingresos,0.6928
+mape_lr_ingresos,7.9
+rmse_rf_ingresos,37667281.2128
+r2_rf_ingresos,-0.9967
+mape_rf_ingresos,20.84
+rmse_lr_transitos,32.5079
+r2_lr_transitos,0.9771
+mape_lr_transitos,6.74
+rmse_rf_transitos,36.2387
+r2_rf_transitos,0.9716
+mape_rf_transitos,6.61
