@@ -1,0 +1,465 @@
+// ============================================================
+// DAX MEASURES - Medidas para Análisis del Canal de Panamá
+// Proyecto: TopicosFinal - Power BI Analytics
+// ============================================================
+
+// ------------------------------------------------------------
+// MEDIDAS DE TRÁNSITO
+// ------------------------------------------------------------
+
+// Total de tránsitos históricos
+Total_Transitos :=
+SUM ( fact_transitos[transitos] )
+
+// Tránsitos por segmento
+Transitos_NeoPanamax :=
+CALCULATE (
+    [Total_Transitos],
+    fact_transitos[segmento] = "NeoPanamax"
+)
+
+Transitos_Panamax_AltoCalado :=
+CALCULATE (
+    [Total_Transitos],
+    fact_transitos[segmento] = "Panamax_AltoCalado"
+)
+
+// Promedio de tránsitos mensuales
+Promedio_Transitos_Mensual :=
+AVERAGE ( fact_transitos[transitos] )
+
+// Máximo de tránsitos en un mes
+Maximo_Transitos :=
+MAX ( fact_transitos[transitos] )
+
+// Mínimo de tránsitos en un mes
+Minimo_Transitos :=
+MIN ( fact_transitos[transitos] )
+
+// Tránsitos del período anterior (mes/año anterior)
+Transitos_Periodo_Anterior :=
+CALCULATE (
+    [Total_Transitos],
+    PARALLELPERIOD ( dim_tiempo[fecha], -1, MONTH )
+)
+
+// Variación de tránsitos respecto al período anterior
+Variacion_Transitos :=
+VAR __Actual = [Total_Transitos]
+VAR __Anterior = [Transitos_Periodo_Anterior]
+RETURN
+    IF (
+        __Anterior <> 0,
+        DIVIDE ( __Actual - __Anterior, __Anterior ),
+        BLANK ()
+    )
+
+// Variación porcentual formateada
+Variacion_Transitos_Pct :=
+FORMAT ( [Variacion_Transitos], "Percent" )
+
+// ------------------------------------------------------------
+// MEDIDAS DE INGRESOS
+// ------------------------------------------------------------
+
+// Total de ingresos históricos
+Total_Ingresos :=
+SUM ( fact_transitos[ingresos] )
+
+// Ingresos formateados en millones USD
+Ingresos_Millones_USD :=
+DIVIDE ( [Total_Ingresos], 1000000, 2 )
+
+// Ingresos por segmento
+Ingresos_NeoPanamax :=
+CALCULATE (
+    [Total_Ingresos],
+    fact_transitos[segmento] = "NeoPanamax"
+)
+
+Ingresos_Panamax_AltoCalado :=
+CALCULATE (
+    [Total_Ingresos],
+    fact_transitos[segmento] = "Panamax_AltoCalado"
+)
+
+// Promedio de ingresos mensuales
+Promedio_Ingresos_Mensual :=
+AVERAGE ( fact_transitos[ingresos] )
+
+// Ingresos del período anterior
+Ingresos_Periodo_Anterior :=
+CALCULATE (
+    [Total_Ingresos],
+    PARALLELPERIOD ( dim_tiempo[fecha], -1, MONTH )
+)
+
+// Variación de ingresos
+Variacion_Ingresos :=
+VAR __Actual = [Total_Ingresos]
+VAR __Anterior = [Ingresos_Periodo_Anterior]
+RETURN
+    IF (
+        __Anterior <> 0,
+        DIVIDE ( __Actual - __Anterior, __Anterior ),
+        BLANK ()
+    )
+
+// ------------------------------------------------------------
+// MEDIDAS DE TONELADAS Y VOLUMEN
+// ------------------------------------------------------------
+
+// Total de toneladas
+Total_Toneladas :=
+SUM ( fact_transitos[toneladas] )
+
+// Total de volumen
+Total_Volumen :=
+SUM ( fact_transitos[volumen] )
+
+// Toneladas formateadas en millones
+Toneladas_Millones :=
+DIVIDE ( [Total_Toneladas], 1000000, 2 )
+
+// Volumen formateado en millones
+Volumen_Millones :=
+DIVIDE ( [Total_Volumen], 1000000, 2 )
+
+// ------------------------------------------------------------
+// MEDIDAS DE TONELADAS POR TRÁNSITO (EFICIENCIA)
+// ------------------------------------------------------------
+
+// Toneladas promedio por tránsito
+Toneladas_Por_Transito :=
+DIVIDE ( [Total_Toneladas], [Total_Transitos], 0 )
+
+// Volumen promedio por tránsito
+Volumen_Por_Transito :=
+DIVIDE ( [Total_Volumen], [Total_Transitos], 0 )
+
+// ------------------------------------------------------------
+// MEDIDAS DE PREDICCIONES 2026
+// ------------------------------------------------------------
+
+// Predicción de tránsitos 2026
+Prediccion_Transitos_2026 :=
+SUM ( predicciones_2026[pred_transitos] )
+
+// Predicción de ingresos 2026
+Prediccion_Ingresos_2026 :=
+SUM ( predicciones_2026[pred_ingresos] )
+
+// Límite inferior predicción tránsitos
+Prediccion_Transitos_LI :=
+SUM ( predicciones_2026[limite_inferior] )
+
+// Límite superior predicción tránsitos
+Prediccion_Transitos_LS :=
+SUM ( predicciones_2026[limite_superior] )
+
+// Predicción ingresos formateada
+Prediccion_Ingresos_Millones :=
+DIVIDE ( [Prediccion_Ingresos_2026], 1000000, 2 )
+
+// ------------------------------------------------------------
+// MEDIDAS COMPARATIVAS: HISTÓRICO vs PREDICCIÓN
+// ------------------------------------------------------------
+
+// Diferencia tránsitos predichos vs último año histórico
+Diferencia_Transitos_Pred_vs_Historico :=
+VAR __UltimoHistorico =
+    CALCULATE (
+        [Total_Transitos],
+        dim_tiempo[anio] = MAX ( dim_tiempo[anio] ) - 1,
+        NOT dim_tiempo[es_prediccion]
+    )
+RETURN
+    [Prediccion_Transitos_2026] - __UltimoHistorico
+
+// Porcentaje de cambio predicción vs histórico
+Cambio_Prediccion_Pct :=
+VAR __UltimoHistorico =
+    CALCULATE (
+        [Total_Transitos],
+        dim_tiempo[anio] = MAX ( dim_tiempo[anio] ) - 1,
+        NOT dim_tiempo[es_prediccion]
+    )
+RETURN
+    IF (
+        __UltimoHistorico <> 0,
+        DIVIDE ( [Prediccion_Transitos_2026] - __UltimoHistorico, __UltimoHistorico ),
+        BLANK ()
+    )
+
+// ------------------------------------------------------------
+// MEDIDAS DE CRECIMIENTO ANUAL
+// ------------------------------------------------------------
+
+// Crecimiento año vs año anterior
+Crecimiento_Anual :=
+VAR __AnioActual = MAX ( dim_tiempo[anio] )
+VAR __AnioAnterior = __AnioActual - 1
+VAR __TransitosActuales =
+    CALCULATE (
+        [Total_Transitos],
+        dim_tiempo[anio] = __AnioActual
+    )
+VAR __TransitosAnteriores =
+    CALCULATE (
+        [Total_Transitos],
+        dim_tiempo[anio] = __AnioAnterior
+    )
+RETURN
+    IF (
+        __TransitosAnteriores <> 0,
+        DIVIDE ( __TransitosActuales - __TransitosAnteriores, __TransitosAnteriores ),
+        BLANK ()
+    )
+
+// Crecimiento anual formateado
+Crecimiento_Anual_Pct :=
+FORMAT ( [Crecimiento_Anual], "Percent" )
+
+// ------------------------------------------------------------
+// MEDIDAS DE PARTICIPACIÓN (MARKET SHARE)
+// ------------------------------------------------------------
+
+// Participación por segmento
+Participacion_Segmento :=
+DIVIDE (
+    [Total_Transitos],
+    CALCULATE (
+        [Total_Transitos],
+        ALL ( fact_transitos[segmento] )
+    )
+)
+
+// Participación por segmento formateada
+Participacion_Segmento_Pct :=
+FORMAT ( [Participacion_Segmento], "Percent" )
+
+// Participación por país
+Participacion_Pais :=
+DIVIDE (
+    SUM ( clusters_paises[total] ),
+    CALCULATE (
+        SUM ( clusters_paises[total] ),
+        ALL ( clusters_paises[pais] )
+    )
+)
+
+// ------------------------------------------------------------
+// MEDIDAS DE PAÍSES (CLUSTERS)
+// ------------------------------------------------------------
+
+// Total tráfico origen por país
+Trafico_Origen_Pais :=
+SUM ( clusters_paises[origen] )
+
+// Total tráfico destino por país
+Trafico_Destino_Pais :=
+SUM ( clusters_paises[destino] )
+
+// Tráfico costa a costa por país
+Trafico_Costa_A_Costa :=
+SUM ( clusters_paises[costa_a_costa] )
+
+// Distancia al centroide del cluster
+Distancia_Centroide :=
+AVERAGE ( clusters_paises[distancia_centroide] )
+
+// Países en cada cluster
+Paises_Por_Cluster :=
+COUNTROWS ( clusters_paises )
+
+// ------------------------------------------------------------
+// MEDIDAS DE ANÁLISIS TEMPORAL
+// ------------------------------------------------------------
+
+// Tránsitos acumulados en el año
+Transitos_Acumulados_Anio :=
+VAR __AnioActual = MAX ( dim_tiempo[anio] )
+RETURN
+    CALCULATE (
+        [Total_Transitos],
+        dim_tiempo[anio] = __AnioActual,
+        dim_tiempo[fecha] <= MAX ( dim_tiempo[fecha] )
+    )
+
+// Tránsitos del mismo mes en años anteriores
+Transitos_Mes_Anio_Anterior :=
+VAR __MesActual = MAX ( dim_tiempo[mes_num] )
+VAR __AnioActual = MAX ( dim_tiempo[anio] )
+RETURN
+    CALCULATE (
+        [Total_Transitos],
+        dim_tiempo[mes_num] = __MesActual,
+        dim_tiempo[anio] = __AnioActual - 1
+    )
+
+// Promedio móvil 3 meses
+Promedio_Movil_3M :=
+AVERAGEX (
+    DATESINPERIOD (
+        dim_tiempo[fecha],
+        MAX ( dim_tiempo[fecha] ),
+        -3,
+        MONTH
+    ),
+    [Total_Transitos]
+)
+
+// Promedio móvil 12 meses
+Promedio_Movil_12M :=
+AVERAGEX (
+    DATESINPERIOD (
+        dim_tiempo[fecha],
+        MAX ( dim_tiempo[fecha] ),
+        -12,
+        MONTH
+    ),
+    [Total_Transitos]
+)
+
+// ------------------------------------------------------------
+// MEDIDAS DE ESTACIONALIDAD
+// ------------------------------------------------------------
+
+// Índice de estacionalidad por mes
+Indice_Estacionalidad_Mes :=
+VAR __PromedioGeneral = [Promedio_Transitos_Mensual]
+VAR __PromedioMes =
+    AVERAGEX (
+        ALL ( dim_tiempo[anio] ),
+        CALCULATE ( [Total_Transitos] )
+    )
+RETURN
+    DIVIDE ( __PromedioMes, __PromedioGeneral )
+
+// Mes con mayor tránsito
+Mes_Pico :=
+MAXX (
+    SUMMARIZE ( dim_tiempo, dim_tiempo[mes_nombre] ),
+    [Total_Transitos]
+)
+
+// ------------------------------------------------------------
+// MEDIDAS DE COMPARACIÓN DE SEGMENTOS
+// ------------------------------------------------------------
+
+// Ratio NeoPanamax vs Panamax_AltoCalado
+Ratio_Segmentos :=
+DIVIDE ( [Transitos_NeoPanamax], [Transitos_Panamax_AltoCalado], 0 )
+
+// Diferencia entre segmentos
+Diferencia_Segmentos :=
+[Transitos_NeoPanamax] - [Transitos_Panamax_AltoCalado]
+
+// Participación NeoPanamax
+Participacion_NeoPanamax :=
+CALCULATE (
+    [Total_Transitos],
+    fact_transitos[segmento] = "NeoPanamax"
+)
+/
+CALCULATE (
+    [Total_Transitos],
+    ALL ( fact_transitos[segmento] )
+)
+
+// ------------------------------------------------------------
+// MEDIDAS DE TENDENCIA
+// ------------------------------------------------------------
+
+// Tendencia últimos 12 meses
+Tendencia_Ultimos_12M :=
+VAR __Periodos =
+    DATESINPERIOD (
+        dim_tiempo[fecha],
+        MAX ( dim_tiempo[fecha] ),
+        -12,
+        MONTH
+    )
+VAR __Transitos12M =
+    CALCULATE (
+        [Total_Transitos],
+        __Periodos
+    )
+VAR __Transitos12MAnterior =
+    CALCULATE (
+        [Total_Transitos],
+        DATESINPERIOD (
+            dim_tiempo[fecha],
+            MAX ( dim_tiempo[fecha] ),
+            -24,
+            MONTH
+        ),
+        __Periodos
+    )
+RETURN
+    DIVIDE ( __Transitos12M - __Transitos12MAnterior, __Transitos12MAnterior )
+
+// ------------------------------------------------------------
+// MEDIDAS DE CAPACIDAD (umbrales)
+// ------------------------------------------------------------
+
+// Indicador de tránsito alto (>300)
+Es_Transito_Alto :=
+[Total_Transitos] > 300
+
+// Indicador de tránsito bajo (<200)
+Es_Transito_Bajo :=
+[Total_Transitos] < 200
+
+// Clasificación de nivel de tránsito
+Nivel_Transito :=
+SWITCH (
+    TRUE (),
+    [Total_Transitos] >= 350, "Muy Alto",
+    [Total_Transitos] >= 300, "Alto",
+    [Total_Transitos] >= 250, "Medio",
+    [Total_Transitos] >= 200, "Bajo",
+    "Muy Bajo"
+)
+
+// ------------------------------------------------------------
+// MEDIDAS DE BANDAS DE CONFIANZA (PREDICCIONES)
+// ------------------------------------------------------------
+
+// Ancho de banda de predicción
+Ancho_Banda_Prediccion :=
+[Prediccion_Transitos_LS] - [Prediccion_Transitos_LI]
+
+// Incertidumbre de predicción (coeficiente de variación)
+Incertidumbre_Prediccion :=
+DIVIDE (
+    [Ancho_Banda_Prediccion],
+    [Prediccion_Transitos_2026],
+    0
+)
+
+// Predicción dentro del rango histórico
+Prediccion_En_Rango_Historico :=
+VAR __MinimoHistorico = MIN ( fact_transitos[transitos] )
+VAR __MaximoHistorico = MAX ( fact_transitos[transitos] )
+RETURN
+    AND (
+        [Prediccion_Transitos_2026] >= __MinimoHistorico,
+        [Prediccion_Transitos_2026] <= __MaximoHistorico
+    )
+
+// ------------------------------------------------------------
+// MEDIDAS CALCULADAS EN TABLA DIM_TIEMPO
+// ------------------------------------------------------------
+
+// Contador de períodos
+Numero_Periodos :=
+COUNTROWS ( dim_tiempo )
+
+// Años en el modelo
+Numero_Anios :=
+DISTINCTCOUNT ( dim_tiempo[anio] )
+
+// ------------------------------------------------------------
+// FIN DE MEDIDAS DAX
+// ------------------------------------------------------------

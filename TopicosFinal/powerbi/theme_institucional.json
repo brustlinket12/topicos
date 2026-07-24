@@ -1,0 +1,13 @@
+{
+  "name": "Canal Panama Institucional",
+  "dataColors": ["#1F4E79", "#2E75B6", "#5B9BD5", "#9DC3E6", "#BDD7EE", "#2C3E50", "#34495E", "#95A5A6"],
+  "background": "#F2F2F2",
+  "foreground": "#1F4E79",
+  "tableAccent": "#2E75B6",
+  "good": "#2E7D32",
+  "neutral": "#FFA726",
+  "bad": "#D32F2F",
+  "maximum": "#1F4E79",
+  "center": "#FFA726",
+  "minimum": "#D32F2F"
+}
