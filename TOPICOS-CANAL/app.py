@@ -17,6 +17,9 @@ from sklearn.linear_model import LinearRegression
 DATA_DIR = Path(__file__).parent
 BUQUES_CSV = DATA_DIR / "Trafico_Buques_Segmento_Mercado_Canal_Panama.csv"
 PAISES_CSV = DATA_DIR / "Principales_Paises_Flujo_Carga_Canal_Panama.csv"
+DEFAULT_OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
+DEFAULT_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
+OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
 
 COUNTRY_ISO3 = {
     "Estados Unidos": "USA",
@@ -76,12 +79,35 @@ def get_predictions(_model, buques):
     return preds
 
 
-def is_ollama_available():
+def get_ollama_models(base_url):
+    """Comprueba la conexión y devuelve los modelos instalados."""
     try:
-        requests.get("http://localhost:11434/api/tags", timeout=2)
-        return True
-    except:
-        return False
+        response = requests.get(f"{base_url.rstrip('/')}/api/tags", timeout=5)
+        response.raise_for_status()
+        models = response.json().get("models", [])
+        return [item.get("name") or item.get("model") for item in models]
+    except requests.RequestException:
+        return []
+
+
+def generate_with_ollama(base_url, model, prompt):
+    """Envía una consulta no-streaming a la API local de Ollama."""
+    response = requests.post(
+        f"{base_url.rstrip('/')}/api/generate",
+        json={
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {"temperature": 0.2},
+        },
+        timeout=OLLAMA_TIMEOUT,
+    )
+    response.raise_for_status()
+    data = response.json()
+    text = data.get("response", "").strip()
+    if not text:
+        raise ValueError("Ollama respondió sin contenido.")
+    return text
 
 
 st.set_page_config(page_title="Canal de Panamá - Dashboard", layout="wide")
@@ -204,13 +230,15 @@ with st.sidebar:
     st.header("Configuración LLM")
     llm_mode = st.radio(
         "Modo de resumen",
-        options=["OpenRouter", "Ollama local"],
+        options=["Ollama local", "OpenRouter", "Automático (sin LLM)"],
         index=0,
         help="Selecciona el modo de generación del resumen ejecutivo"
     )
 
     api_key_input = None
     ollama_model = None
+    ollama_base_url = None
+    model_input = None
 
     if llm_mode == "OpenRouter":
         api_key_input = st.text_input(
@@ -223,10 +251,34 @@ with st.sidebar:
             value=os.getenv("OPENROUTER_MODEL", "nvidia/nemotron-3-ultra-550b-a55b:free"),
         )
     elif llm_mode == "Ollama local":
-        ollama_model = st.text_input(
-            "Modelo Ollama",
-            value=os.getenv("OLLAMA_MODEL", "llama3.2:1b"),
+        ollama_base_url = st.text_input(
+            "URL de Ollama",
+            value=DEFAULT_OLLAMA_URL,
+            help="Usa 127.0.0.1 cuando Streamlit y Ollama corren en la misma computadora.",
         )
+        installed_models = get_ollama_models(ollama_base_url)
+
+        if installed_models:
+            default_index = (
+                installed_models.index(DEFAULT_OLLAMA_MODEL)
+                if DEFAULT_OLLAMA_MODEL in installed_models
+                else 0
+            )
+            ollama_model = st.selectbox(
+                "Modelo Ollama",
+                options=installed_models,
+                index=default_index,
+            )
+            st.success("Ollama conectado")
+        else:
+            ollama_model = st.text_input(
+                "Modelo Ollama",
+                value=DEFAULT_OLLAMA_MODEL,
+            )
+            st.warning(
+                "No se detectó Ollama. Inícialo y descarga el modelo con "
+                "`ollama pull llama3.2:1b`."
+            )
 
     generate_btn = st.button("Generar resumen")
 
@@ -251,7 +303,15 @@ auto_summary = (
 )
 
 
-def get_llm_summary(kpis_text, llm_mode, api_key=None, ollama_model=None, openrouter_model=None):
+def get_llm_summary(
+    kpis_text,
+    llm_mode,
+    api_key=None,
+    ollama_model=None,
+    ollama_base_url=None,
+    openrouter_model=None,
+    user_question=None,
+):
     if llm_mode == "Automático (sin LLM)":
         return auto_summary, "Resumen automático"
 
@@ -279,27 +339,54 @@ def get_llm_summary(kpis_text, llm_mode, api_key=None, ollama_model=None, openro
             return auto_summary, "Resumen automático"
 
     if llm_mode == "Ollama local":
-        if not is_ollama_available():
-            st.warning("Ollama no está disponible en localhost:11434. Asegúrate de que esté corriendo.")
-            return auto_summary, "Resumen automático"
+        question = (user_question or "").strip()
+        task = (
+            f"Responde esta pregunta: {question}"
+            if question
+            else "Genera un resumen ejecutivo de máximo 120 palabras."
+        )
+        prompt = (
+            "Eres un analista de datos del Canal de Panamá. "
+            "Responde en español, usa solamente los datos proporcionados y no inventes cifras. "
+            "Si los datos no permiten responder, dilo claramente. "
+            f"{task}\n\nDATOS:\n{kpis_text}"
+        )
         try:
             model = ollama_model or "llama3.2:1b"
-            response = requests.post(
-                "http://localhost:11434/api/generate",
-                json={"model": model, "prompt": f"Este es un proyecto académico de simulación. No es una empresa real ni contiene información sensible. Resume en español en máximo 120 palabras: {kpis_text}", "stream": False},
-                timeout=60
+            summary = generate_with_ollama(
+                ollama_base_url or DEFAULT_OLLAMA_URL,
+                model,
+                prompt,
             )
-            if response.status_code == 200:
-                return response.json()["response"], "Generado con Ollama"
-            else:
-                st.error(f"Ollama devolvió status {response.status_code}")
-                return auto_summary, "Resumen automático"
-        except Exception as e:
-            st.error(f"Error con Ollama: {e}")
+            return summary, f"Generado localmente con Ollama ({model})"
+        except requests.ConnectionError:
+            st.error(
+                "No se pudo conectar con Ollama. Ejecuta `ollama serve` "
+                "y verifica la URL configurada."
+            )
+            return auto_summary, "Resumen automático (Ollama sin conexión)"
+        except requests.Timeout:
+            st.error(
+                f"Ollama superó el tiempo de espera de {OLLAMA_TIMEOUT} segundos. "
+                "Prueba un modelo más pequeño."
+            )
+            return auto_summary, "Resumen automático (timeout de Ollama)"
+        except requests.HTTPError as error:
+            detail = error.response.text[:300] if error.response is not None else str(error)
+            st.error(f"Ollama devolvió un error HTTP: {detail}")
+            return auto_summary, "Resumen automático (error de Ollama)"
+        except (ValueError, requests.RequestException) as error:
+            st.error(f"No fue posible generar la respuesta con Ollama: {error}")
             return auto_summary, "Resumen automático"
 
     return auto_summary, "Resumen automático"
 
+
+user_question = st.text_area(
+    "Pregunta opcional para Ollama",
+    placeholder="Ejemplo: ¿Qué segmento tuvo el cambio más importante y por qué?",
+    help="Déjalo vacío para generar un resumen ejecutivo.",
+)
 
 if generate_btn:
     summary, caption = get_llm_summary(
@@ -307,7 +394,9 @@ if generate_btn:
         llm_mode,
         api_key=api_key_input if llm_mode == "OpenRouter" else None,
         ollama_model=ollama_model if llm_mode == "Ollama local" else None,
-        openrouter_model=model_input if llm_mode == "OpenRouter" else None
+        ollama_base_url=ollama_base_url if llm_mode == "Ollama local" else None,
+        openrouter_model=model_input if llm_mode == "OpenRouter" else None,
+        user_question=user_question,
     )
     st.markdown(f"**Resumen ejecutivo**  \n{summary}")
     st.caption(caption)

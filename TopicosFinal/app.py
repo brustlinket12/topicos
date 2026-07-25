@@ -16,6 +16,8 @@ DEFAULT_MODEL = os.getenv(
     "OPENROUTER_MODEL",
     "nvidia/nemotron-3-ultra-550b-a55b:free",
 )
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+DEFAULT_OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
 
 
 @st.cache_data
@@ -107,6 +109,9 @@ def ask_llm(
     context: str,
     api_key: str,
     model: str,
+    provider: str = "openrouter",
+    ollama_url: str = OLLAMA_BASE_URL,
+    ollama_model: str = DEFAULT_OLLAMA_MODEL,
 ) -> str:
     system_prompt = f"""
 Eres un analista del Canal de Panamá integrado en un dashboard de Power BI.
@@ -122,21 +127,30 @@ CONTEXTO DE DATOS:
     messages.extend(history[-8:])
     messages.append({"role": "user", "content": question})
 
-    response = requests.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={
+    if provider == "ollama":
+        url = f"{ollama_url.rstrip('/')}/v1/chat/completions"
+        headers = {"Content-Type": "application/json"}
+        payload = {
+            "model": ollama_model,
+            "messages": messages,
+            "temperature": 0.2,
+            "stream": False,
+        }
+    else:
+        url = "https://openrouter.ai/api/v1/chat/completions"
+        headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             "HTTP-Referer": "http://localhost:8501",
             "X-Title": "Canal de Panama Analytics",
-        },
-        json={
+        }
+        payload = {
             "model": model,
             "messages": messages,
             "temperature": 0.2,
-        },
-        timeout=90,
-    )
+        }
+
+    response = requests.post(url, headers=headers, json=payload, timeout=90)
     response.raise_for_status()
     return response.json()["choices"][0]["message"]["content"]
 
@@ -173,18 +187,43 @@ predictions: pd.DataFrame = data["predictions"]  # type: ignore[assignment]
 
 with st.sidebar:
     st.header("Configuración")
-    api_key = st.text_input(
-        "OpenRouter API key",
-        value=os.getenv("OPENROUTER_API_KEY", ""),
-        type="password",
-        help="No se guarda en archivos ni se incluye en el reporte.",
+    provider = st.radio(
+        "Proveedor",
+        options=["openrouter", "ollama"],
+        format_func=lambda x: "OpenRouter" if x == "openrouter" else "Ollama (local)",
+        index=0,
+        help="Selecciona OpenRouter (cloud) u Ollama (local).",
     )
-    model = st.text_input("Modelo", value=DEFAULT_MODEL)
+
+    if provider == "openrouter":
+        api_key = st.text_input(
+            "OpenRouter API key",
+            value=os.getenv("OPENROUTER_API_KEY", ""),
+            type="password",
+            help="No se guarda en archivos.",
+        )
+        model = st.text_input("Modelo", value=DEFAULT_MODEL)
+        ollama_url = ""
+        ollama_model = ""
+    else:
+        api_key = ""
+        model = ""
+        ollama_url = st.text_input(
+            "Ollama URL",
+            value=OLLAMA_BASE_URL,
+            help="Ej: http://localhost:11434",
+        )
+        ollama_model = st.text_input(
+            "Modelo Ollama",
+            value=DEFAULT_OLLAMA_MODEL,
+            help="Ej: llama3.2, mistral, qwen2.5",
+        )
+
     selected_segment = st.selectbox(
         "Segmento",
         ["Todos", *sorted(historical["segmento"].unique().tolist())],
     )
-    if st.button("Limpiar conversación", use_container_width=True):
+    if st.button("Limpiar conversación", width="stretch"):
         st.session_state.messages = []
         st.rerun()
 
@@ -233,7 +272,7 @@ fig = px.line(
     color_discrete_map={"Histórico": "#0B3C5D", "Predicción": "#F2A900"},
 )
 fig.update_layout(height=310, margin=dict(l=10, r=10, t=20, b=10))
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width="stretch")
 
 st.subheader("Conversación")
 if "messages" not in st.session_state:
@@ -252,13 +291,16 @@ if question:
     with st.chat_message("assistant"):
         with st.spinner("Analizando los datos..."):
             try:
-                if api_key:
+                if api_key or provider == "ollama":
                     answer = ask_llm(
                         question,
                         st.session_state.messages[:-1],
                         compact_context(data),
                         api_key,
                         model,
+                        provider=provider,
+                        ollama_url=ollama_url,
+                        ollama_model=ollama_model,
                     )
                 else:
                     answer = fallback_answer(question, data)
